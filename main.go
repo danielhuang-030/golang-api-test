@@ -111,43 +111,42 @@ func main() {
 	router := gin.Default()
 	api := router.Group("/api/v1")
 	api.Use(JWTAuthMiddleware())
-	{
-		api.POST("/accounts", func(c *gin.Context) {
-			// connect DB
-			db, err := gorm.Open(os.Getenv("DB_CONNECTION"), fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8&parseTime=True&loc=Local", os.Getenv("DB_USERNAME"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_HOST"), os.Getenv("DB_PORT"), os.Getenv("DB_DATABASE")))
-			if err != nil {
-				statusCode := http.StatusBadRequest
-				c.JSON(statusCode, gin.H{
-					"statusCode": statusCode,
-					"message":    err.Error(),
-					"data":       "",
-				})
-				return
-			}
-
-			// add account
-			newAccount, err := createAccount(db, c.PostForm("account"))
-			if err != nil {
-				statusCode := http.StatusBadRequest
-				c.JSON(statusCode, gin.H{
-					"statusCode": statusCode,
-					"message":    err.Error(),
-					"data":       "",
-				})
-				return
-			}
-			defer db.Close()
-
-			// Success
-			statusCode := http.StatusOK
+	api.POST("/accounts", func(c *gin.Context) {
+		// connect DB
+		db, err := gorm.Open(os.Getenv("DB_CONNECTION"), fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8&parseTime=True&loc=Local", os.Getenv("DB_USERNAME"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_HOST"), os.Getenv("DB_PORT"), os.Getenv("DB_DATABASE")))
+		if err != nil {
+			statusCode := http.StatusBadRequest
 			c.JSON(statusCode, gin.H{
 				"statusCode": statusCode,
-				"message":    "Success",
-				"data":       newAccount,
+				"message":    err.Error(),
+				"data":       "",
 			})
+			return
+		}
+
+		// add account
+		newAccount, err := createAccount(db, c.PostForm("account"))
+		if err != nil {
+			statusCode := http.StatusBadRequest
+			c.JSON(statusCode, gin.H{
+				"statusCode": statusCode,
+				"message":    err.Error(),
+				"data":       "",
+			})
+			return
+		}
+		defer db.Close()
+
+		// Success
+		statusCode := http.StatusOK
+		c.JSON(statusCode, gin.H{
+			"statusCode": statusCode,
+			"message":    "Success",
+			"data":       newAccount,
 		})
-	}
-	router.Run(":4000")
+	})
+
+	router.Run(":" + os.Getenv("APP_PORT"))
 }
 
 // get random password
