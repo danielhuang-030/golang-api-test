@@ -48,12 +48,21 @@ type Setting struct {
 	UpdatedAt time.Time
 }
 
+var db *gorm.DB
+
 // init
 func init() {
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
+
+	// connect DB
+	dbConn, err := gorm.Open(os.Getenv("DB_CONNECTION"), fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8&parseTime=True&loc=Local", os.Getenv("DB_USERNAME"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_HOST"), os.Getenv("DB_PORT"), os.Getenv("DB_DATABASE")))
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	db = dbConn
 }
 
 //JWTAuthMiddleware middleware
@@ -81,18 +90,6 @@ func validateToken(c *gin.Context) bool {
 		return false
 	}
 
-	// connect DB
-	db, err := gorm.Open(os.Getenv("DB_CONNECTION"), fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8&parseTime=True&loc=Local", os.Getenv("DB_USERNAME"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_HOST"), os.Getenv("DB_PORT"), os.Getenv("DB_DATABASE")))
-	if err != nil {
-		statusCode := http.StatusBadRequest
-		c.JSON(statusCode, gin.H{
-			"statusCode": statusCode,
-			"message":    err.Error(),
-			"data":       "",
-		})
-		return false
-	}
-
 	// get user token
 	var user User
 	db.Where("api_token = ?", token).First(&user)
@@ -112,20 +109,8 @@ func main() {
 	api := router.Group("/api/v1")
 	api.Use(JWTAuthMiddleware())
 	api.POST("/accounts", func(c *gin.Context) {
-		// connect DB
-		db, err := gorm.Open(os.Getenv("DB_CONNECTION"), fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8&parseTime=True&loc=Local", os.Getenv("DB_USERNAME"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_HOST"), os.Getenv("DB_PORT"), os.Getenv("DB_DATABASE")))
-		if err != nil {
-			statusCode := http.StatusBadRequest
-			c.JSON(statusCode, gin.H{
-				"statusCode": statusCode,
-				"message":    err.Error(),
-				"data":       "",
-			})
-			return
-		}
-
 		// add account
-		newAccount, err := createAccount(db, c.PostForm("account"))
+		newAccount, err := createAccount(c.PostForm("account"))
 		if err != nil {
 			statusCode := http.StatusBadRequest
 			c.JSON(statusCode, gin.H{
@@ -135,7 +120,6 @@ func main() {
 			})
 			return
 		}
-		defer db.Close()
 
 		// Success
 		statusCode := http.StatusOK
@@ -160,7 +144,7 @@ func getRandomPassword(strlen int) string {
 }
 
 // create account
-func createAccount(db *gorm.DB, account string) (Account, error) {
+func createAccount(account string) (Account, error) {
 	tx := db.Begin()
 
 	// check account
