@@ -9,45 +9,16 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jinzhu/gorm"
 	"github.com/joho/godotenv"
+
+	"api/models"
 )
 
-// User
-type User struct {
-	ID            uint `gorm:"primary_key"`
-	Name          string
-	Email         string
-	Password      string
-	ApiToken      string
-	RememberToken string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-}
-
-// Account
-type Account struct {
-	ID        uint `gorm:"primary_key"`
-	Account   string
-	Password  string
-	Ip        string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
-// Setting
-type Setting struct {
-	ID        uint `gorm:"primary_key"`
-	Skey      string
-	Svalue    string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
+// db
 var db *gorm.DB
 
 // init
@@ -104,17 +75,17 @@ func getRandomPassword(strlen int) string {
 }
 
 // create account
-func createAccount(account string) (Account, error) {
+func createAccount(account string) (models.Account, error) {
 	tx := db.Begin()
 
 	// check account
 	if account == "" {
 		tx.Rollback()
-		return Account{}, errors.New("The account is empty")
+		return models.Account{}, errors.New("The account is empty")
 	}
 
 	// get next IP
-	var setting Setting
+	var setting models.Setting
 	tx.Find(&setting, "skey = ?", "private_ip_member")
 	ip := net.ParseIP(setting.Svalue)
 	ip = ip.To4()
@@ -124,7 +95,7 @@ func createAccount(account string) (Account, error) {
 	tx.Save(&setting)
 
 	// add new account
-	newAccount := Account{
+	newAccount := models.Account{
 		Account:  account,
 		Password: getRandomPassword(10),
 		Ip:       newIp,
@@ -132,7 +103,7 @@ func createAccount(account string) (Account, error) {
 
 	if err := tx.Save(&newAccount).Error; err != nil {
 		tx.Rollback()
-		return Account{}, err
+		return models.Account{}, err
 	}
 	tx.Commit()
 
@@ -145,7 +116,7 @@ func isAuthByToken(token string) bool {
 		return false
 	}
 
-	var user User
+	var user models.User
 	db.Find(&user, "api_token = ?", token)
 	if user.ID == 0 {
 		return false
