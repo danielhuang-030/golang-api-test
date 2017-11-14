@@ -68,40 +68,20 @@ func init() {
 //JWTAuthMiddleware middleware
 func JWTAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !validateToken(c) {
+		token := c.Request.Header.Get("Authorization")
+		token = strings.TrimPrefix(token, "Bearer ")
+		if !isAuthByToken(token) {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"statusCode": http.StatusUnauthorized,
+				"message":    "Unauthorized Error",
+				"data":       "",
+			})
 			c.Abort()
 			return
 		}
 		c.Next()
 		return
 	}
-}
-
-// validate token
-func validateToken(c *gin.Context) bool {
-	token := c.Request.Header.Get("Authorization")
-	token = strings.TrimPrefix(token, "Bearer ")
-	if token == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"statusCode": http.StatusUnauthorized,
-			"message":    "Unauthorized Error",
-			"data":       "",
-		})
-		return false
-	}
-
-	// get user token
-	var user User
-	db.Where("api_token = ?", token).First(&user)
-	if user.ID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"statusCode": http.StatusUnauthorized,
-			"message":    "Unauthorized Error",
-			"data":       "",
-		})
-		return false
-	}
-	return true
 }
 
 func main() {
@@ -177,4 +157,18 @@ func createAccount(account string) (Account, error) {
 	tx.Commit()
 
 	return newAccount, nil
+}
+
+// is auth by token
+func isAuthByToken(token string) bool {
+	if token == "" {
+		return false
+	}
+
+	var user User
+	db.Find(&user, "api_token = ?", token)
+	if user.ID == 0 {
+		return false
+	}
+	return true
 }
