@@ -3,36 +3,17 @@ package main
 import (
 	"net/http"
 	"os"
-	"strings"
 
+	"api/middlewares"
 	"api/models"
 
 	"github.com/gin-gonic/gin"
 )
 
-//JWTAuthMiddleware middleware
-func JWTAuthMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		token := c.Request.Header.Get("Authorization")
-		token = strings.TrimPrefix(token, "Bearer ")
-		if !models.IsAuthByToken(token) {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"statusCode": http.StatusUnauthorized,
-				"message":    "Unauthorized Error",
-				"data":       "",
-			})
-			c.Abort()
-			return
-		}
-		c.Next()
-		return
-	}
-}
-
 func main() {
 	router := gin.Default()
 	api := router.Group("/api/v1")
-	api.Use(JWTAuthMiddleware())
+	api.Use(middlewares.JWTAuth())
 	api.POST("/accounts", store)
 
 	router.Run(":" + os.Getenv("APP_PORT"))
