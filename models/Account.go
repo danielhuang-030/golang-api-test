@@ -18,8 +18,7 @@ type Account struct {
 
 // create account
 func CreateAccount(account string) (Account, error) {
-	db := GetDB()
-	tx := db.Begin()
+	tx := GetDB().Begin()
 
 	// check account
 	if account == "" {
