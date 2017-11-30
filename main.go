@@ -15,6 +15,7 @@ func main() {
 	api := router.Group("/api/v1")
 	api.Use(middlewares.JWTAuth())
 	api.POST("/accounts", store)
+	api.PUT("/accounts/rebuild", rebuild)
 
 	router.Run(":" + os.Getenv("APP_PORT"))
 }
@@ -38,5 +39,26 @@ func store(c *gin.Context) {
 		"statusCode": statusCode,
 		"message":    "Success",
 		"data":       newAccount,
+	})
+}
+
+func rebuild(c *gin.Context) {
+	err := models.RebuildAccountFile()
+	if err != nil {
+		statusCode := http.StatusBadRequest
+		c.JSON(statusCode, gin.H{
+			"statusCode": statusCode,
+			"message":    err.Error(),
+			"data":       "",
+		})
+		return
+	}
+
+	// Success
+	statusCode := http.StatusOK
+	c.JSON(statusCode, gin.H{
+		"statusCode": statusCode,
+		"message":    "Success",
+		"data":       "",
 	})
 }
