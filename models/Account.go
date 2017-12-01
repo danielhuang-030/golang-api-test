@@ -8,6 +8,8 @@ import (
 	"net"
 	"os"
 	"time"
+
+	"github.com/jinzhu/gorm"
 )
 
 type Account struct {
@@ -21,6 +23,7 @@ type Account struct {
 
 // create account
 func CreateAccount(account string) (Account, error) {
+	// tx := GetTx()
 	tx := GetDB().Begin()
 
 	// check account
@@ -50,7 +53,6 @@ func CreateAccount(account string) (Account, error) {
 		tx.Rollback()
 		return Account{}, err
 	}
-	tx.Commit()
 
 	// append account info
 	file := os.Getenv("VPN_ACCOUNT_FILE")
@@ -59,16 +61,52 @@ func CreateAccount(account string) (Account, error) {
 		return newAccount, err
 	}
 	defer f.Close()
-
-	if _, err = f.WriteString(fmt.Sprintf("\"%s\" l2tpd \"%s\" %s\n", newAccount.Account, newAccount.Password, newAccount.Ip)); err != nil {
-		return newAccount, err
+	if _, err := f.WriteString(fmt.Sprintf("\"%s\" l2tpd \"%s\" %s\n", newAccount.Account, newAccount.Password, newAccount.Ip)); err != nil {
+		tx.Rollback()
+		return Account{}, err
 	}
+	tx.Commit()
 
 	return newAccount, nil
 }
 
+// destroy account
+func DestroyAccount(id int) error {
+	// tx := GetTx()
+	tx := GetDB().Begin()
+
+	// check id
+	if id == 0 {
+		return errors.New("Params error")
+	}
+
+	// get account
+	var account Account
+	tx.First(&account, id)
+	if account.ID == 0 {
+		tx.Rollback()
+		return errors.New("This account does not exist")
+	}
+
+	// destroy account
+	if err := tx.Delete(&account).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// rebuild account file
+	if err := RebuildAccountFile(tx); err != nil {
+		tx.Rollback()
+		return err
+	}
+	tx.Commit()
+
+	return nil
+}
+
 // get random password
 func getRandomPassword(strlen int) string {
+	rand.Seed(time.Now().UnixNano())
 	const POOL = "abcdefghijkmnpqrstuwxyz23456789"
 	password := make([]byte, strlen)
 	for i := range password {
@@ -78,7 +116,7 @@ func getRandomPassword(strlen int) string {
 }
 
 // rebuild account file
-func RebuildAccountFile() error {
+func RebuildAccountFile(tx ...*gorm.DB) error {
 	file := os.Getenv("VPN_ACCOUNT_FILE")
 	now := time.Now()
 	datetime := now.Format("20060102150405")
@@ -97,7 +135,11 @@ func RebuildAccountFile() error {
 
 	// get all accounts
 	var accounts []Account
-	GetDB().Find(&accounts)
+	if len(tx) > 0 {
+		tx[0].Find(&accounts)
+	} else {
+		GetDB().Find(&accounts)
+	}
 	if 0 == len(accounts) {
 		return errors.New("The account list is empty")
 	}
@@ -117,7 +159,7 @@ func RebuildAccountFile() error {
 			return err
 		}
 		defer f.Close()
-
+		// fmt.Printf("%v, %T", accounts[i], accounts[i])
 		if _, err = f.WriteString(fmt.Sprintf("\"%s\" l2tpd \"%s\" %s\n", accounts[i].Account, accounts[i].Password, accounts[i].Ip)); err != nil {
 			return err
 		}
@@ -134,9 +176,6 @@ func RebuildAccountFile() error {
 	if err != nil {
 		return err
 	}
-
-	fmt.Printf("%v", fileBuilding)
-
 	return nil
 }
 
