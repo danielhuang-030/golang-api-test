@@ -17,6 +17,7 @@ func main() {
 	api := router.Group("/api/v1")
 	api.Use(middlewares.JWTAuth())
 	api.POST("/accounts", store)
+	api.GET("/accounts/get_detail", getDetail)
 	api.DELETE("/accounts/:id", destroy)
 	api.PUT("/accounts/rebuild", rebuild)
 
@@ -42,6 +43,28 @@ func store(c *gin.Context) {
 		"statusCode": statusCode,
 		"message":    "Success",
 		"data":       newAccount,
+	})
+}
+
+func getDetail(c *gin.Context) {
+	accountStr, _ := c.GetQuery("account")
+	account, err := models.GetAccountByAccount(accountStr)
+	if err != nil {
+		statusCode := http.StatusBadRequest
+		c.JSON(statusCode, gin.H{
+			"statusCode": statusCode,
+			"message":    err.Error(),
+			"data":       "",
+		})
+		return
+	}
+
+	// Success
+	statusCode := http.StatusOK
+	c.JSON(statusCode, gin.H{
+		"statusCode": statusCode,
+		"message":    "Success",
+		"data":       account,
 	})
 }
 

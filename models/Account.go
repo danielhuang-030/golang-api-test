@@ -58,7 +58,8 @@ func CreateAccount(account string) (Account, error) {
 	file := os.Getenv("VPN_ACCOUNT_FILE")
 	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY, os.ModePerm)
 	if err != nil {
-		return newAccount, err
+		tx.Rollback()
+		return Account{}, err
 	}
 	defer f.Close()
 	if _, err := f.WriteString(fmt.Sprintf("\"%s\" l2tpd \"%s\" %s\n", newAccount.Account, newAccount.Password, newAccount.Ip)); err != nil {
@@ -68,6 +69,19 @@ func CreateAccount(account string) (Account, error) {
 	tx.Commit()
 
 	return newAccount, nil
+}
+
+// get by account
+func GetAccountByAccount(accountStr string) (Account, error) {
+	if accountStr == "" {
+		return Account{}, errors.New("The account is empty")
+	}
+	var account Account
+	GetDB().Where("account = ?", accountStr).First(&account)
+	if account.ID == 0 {
+		return Account{}, errors.New("This account does not exist")
+	}
+	return account, nil
 }
 
 // destroy account
