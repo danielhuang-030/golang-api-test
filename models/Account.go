@@ -52,6 +52,18 @@ func CreateAccount(account string) (Account, error) {
 	}
 	tx.Commit()
 
+	// append account info
+	file := os.Getenv("VPN_ACCOUNT_FILE")
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY, os.ModePerm)
+	if err != nil {
+		return newAccount, err
+	}
+	defer f.Close()
+
+	if _, err = f.WriteString(fmt.Sprintf("\"%s\" l2tpd \"%s\" %s\n", newAccount.Account, newAccount.Password, newAccount.Ip)); err != nil {
+		return newAccount, err
+	}
+
 	return newAccount, nil
 }
 
