@@ -1,8 +1,11 @@
 package models
 
 import (
+	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"math/rand"
 	"net"
@@ -71,17 +74,51 @@ func CreateAccount(account string) (Account, error) {
 	return newAccount, nil
 }
 
-// get by account
-func GetAccountByAccount(accountStr string) (Account, error) {
+// get info by account
+func GetAccountInfoByAccount(accountStr string, host string) (map[string]interface{}, error) {
+	accountInfo := make(map[string]interface{})
 	if accountStr == "" {
-		return Account{}, errors.New("The account is empty")
+		return accountInfo, errors.New("The account is empty")
+	}
+	if host == "" {
+		host = "127.0.0.1"
 	}
 	var account Account
 	GetDB().Where("account = ?", accountStr).First(&account)
 	if account.ID == 0 {
-		return Account{}, errors.New("This account does not exist")
+		return accountInfo, errors.New("This account does not exist")
 	}
-	return account, nil
+
+	// get profile
+	t, err := template.ParseFiles("templates/profile.plist")
+	if err != nil {
+		return accountInfo, errors.New("The template file does not exist")
+	}
+	var profileBuffer bytes.Buffer
+	t.Execute(&profileBuffer, map[string]string{
+		"account":  account.Account,
+		"password": account.Password,
+		"PSK":      base64.StdEncoding.EncodeToString([]byte(os.Getenv("VPN_PSK"))),
+		"vpn":      host,
+	})
+	profile := profileBuffer.String()
+	/*
+	   // rebuild accountInfo
+	   v := reflect.ValueOf(account)
+	   i := v.Interface()
+	   a := i.(map[string]string)
+	   // accountInfo = reflect.ValueOf(account).Interface().(map[string]string)
+	   fmt.Printf("%v", a)
+	*/
+	// accountInfo = account
+	/*
+	   var aInfo map[string]string
+	   aInfo["Account"] = account.Account
+	   aInfo["Profile"] = profile
+	   fmt.Printf("%v", aInfo)
+	*/
+	accountInfo["Profile"] = profile
+	return accountInfo, nil
 }
 
 // destroy account

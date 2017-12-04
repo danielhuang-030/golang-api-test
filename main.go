@@ -47,14 +47,15 @@ func store(c *gin.Context) {
 }
 
 func getDetail(c *gin.Context) {
-	accountStr, _ := c.GetQuery("account")
-	account, err := models.GetAccountByAccount(accountStr)
+	accountStr := c.DefaultQuery("account", "")
+	host := c.Request.Host
+	account, err := models.GetAccountInfoByAccount(accountStr, host)
 	if err != nil {
 		statusCode := http.StatusBadRequest
 		c.JSON(statusCode, gin.H{
 			"statusCode": statusCode,
 			"message":    err.Error(),
-			"data":       "",
+			"data":       account,
 		})
 		return
 	}
