@@ -1,5 +1,5 @@
 # golang-api-test
-REST API test by Golang
+RESTful API test by Golang
 
 ### Including
  * auto build and restart server [pilu/fresh](https://github.com/pilu/fresh)
